@@ -1,6 +1,6 @@
-# Chub AI Character Downloader
+# 🎴 Chub AI Character Downloader
 
-A Windows tool for snagging public Chub.ai character cards. Search, filter by tag, or even grab a creator's whole catalog. all from a comfy CMD menu, with a live dashboard and parallel downloads.
+A friendly, batteries-included Windows tool for snagging public Chub.ai character cards. Search, filter by tag, grab a creator's whole catalog, or chase event drops — all from a comfy CMD menu, with a live dashboard and parallel downloads.
 
 > ⚠️ **Only public cards** — this tool fetches what Chub serves publicly. NSFL gating still applies to your account settings.
 
@@ -14,7 +14,7 @@ A Windows tool for snagging public Chub.ai character cards. Search, filter by ta
 - 🪟 **Second console window** — auto-spawns alongside the dashboard to tail per-card activity (`[page 18 cards 5-8/20]`, `OK Saved ...`, etc.).
 - 🔁 **Smart deduplication** — already-downloaded cards are skipped before any network call, so re-running a search is cheap.
 - ♻️ **Infinite mode** — pass `-1` for pages to keep harvesting forever; it'll politely sleep between empty passes.
-- 🏷️ **Search modes**: single character, free-text search, creator, tag(s), event.
+- 🏷️ **Search modes**: single character, free-text search, creator, tag(s).
 - 💾 **PNG card / JSON / Both** — PNG embeds the card JSON inside a tEXt chunk (SillyTavern / Risu / Agnai compatible).
 - 📓 **CSV manifest** — every download appended to `downloads_manifest.csv` for easy auditing.
 - 🌐 **Real Chrome under the hood** — uses your actual logged-in session (saved profile), so NSFL works once you've toggled it on your account.
@@ -49,14 +49,13 @@ A Windows tool for snagging public Chub.ai character cards. Search, filter by ta
   [2]  Search and download
   [3]  Creator download
   [4]  Tag download
-  [5]  Event download
-  [6]  Preview search
-  [7]  Preview tag
-  [8]  Login / setup Chub profile
-  [9]  Exit
+  [5]  Preview search
+  [6]  Preview tag
+  [7]  Login / setup Chub profile
+  [8]  Exit
 ```
 
-🥇 **First time?** Pick **[8] Login** first — Chrome opens to chub.ai, log in with Google (or whatever), enable NSFL/NSFW if you want, then press Enter back in the CMD. Your profile is saved locally and reused on every future run.
+🥇 **First time?** Pick **[7] Login** first — Chrome opens to chub.ai, log in with Google (or whatever), enable NSFL/NSFW if you want, then press Enter back in the CMD. Your profile is saved locally and reused on every future run.
 
 ---
 
@@ -74,22 +73,19 @@ Grab every (public) card from one creator. Paste their profile URL or just their
 ### [4] Tag download 🏷️
 One tag, or comma-separated list (`"Love,Human"`). Pick **all tags** (AND) or **any tag** (OR) when prompted.
 
-### [5] Event download 🎟️
-Grab cards from a Chub event by title, tag, ID, or `/events/...` URL.
-
-### [6] / [7] Previews 👀
+### [5] / [6] Previews 👀
 Lists matching results without downloading anything — great for testing a query before committing.
 
-### [8] Login 🔐
+### [7] Login 🔐
 Opens real Chrome with the saved profile so you can sign in / toggle account content settings.
 
-### [9] Exit 🚪
+### [8] Exit 🚪
 
 ---
 
 ## 📊 The Live Dashboard
 
-When you start a download (modes 2-5), **two windows** appear:
+When you start a download (modes 2-4), **two windows** appear:
 
 ### Main window — Dashboard 🖥️
 Updates twice a second, in place, no scrolling:
@@ -173,7 +169,6 @@ Skip the menu and call Python directly:
 py chub_downloader.py search "vampire" --pages 5 --sort latest --format both --concurrency 8
 py chub_downloader.py tag "Love,Human" --pages 2 --match all --format png --concurrency 12
 py chub_downloader.py creator "SomeCreator" --pages 3 --format both --concurrency 4
-py chub_downloader.py event "Gold Rush" --pages 2 --format png --concurrency 6
 py chub_downloader.py single "https://chub.ai/characters/creator/slug" --format both
 py chub_downloader.py preview "robot maid" --sort popularity
 py chub_downloader.py login
@@ -187,7 +182,7 @@ Flags available on download subcommands: `--pages`, `--sort`, `--format`, `--top
 
 NSFL cards are **account-gated** on Chub — even with a valid login, results come back empty until you flip the content toggle in your Chub account settings.
 
-1. Run menu option **[8]**.
+1. Run menu option **[7]**.
 2. Chrome opens. Log in.
 3. Settings → enable the NSFL toggle.
 4. Wait a moment for Chub to apply it (sometimes takes a few seconds).
