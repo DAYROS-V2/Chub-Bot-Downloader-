@@ -1,6 +1,6 @@
 # Chub AI Character Downloader
 
-A friendly, batteries-included Windows tool for snagging public Chub.ai character cards. Search, filter by tag, grab a creator's whole catalog, or chase event drops — all from a comfy CMD menu, with a live dashboard and parallel downloads.
+A Windows tool for snagging public Chub.ai character cards. Search, filter by tag, or even grab a creator's whole catalog. all from a comfy CMD menu, with a live dashboard and parallel downloads.
 
 > ⚠️ **Only public cards** — this tool fetches what Chub serves publicly. NSFL gating still applies to your account settings.
 
