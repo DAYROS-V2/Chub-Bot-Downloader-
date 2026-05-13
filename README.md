@@ -72,6 +72,7 @@ py chub_downloader.py login
 
 - If Chrome is missing, install it from <https://www.google.com/chrome/> or set `CHROME_PATH` to the full path of `chrome.exe`.
 - If NSFL/NSFW queries return nothing, run the login option again and check your Chub account content settings.
+- If Chub does not load while you are signing in, close the scraper CMD window. The Chrome window should finish loading after that. Once you are logged in, run `run_downloader.bat` again and use the normal download/preview options instead of the login option.
 - If downloads fail, check `downloader.log`, then rerun the same mode. Saved cards are skipped automatically unless you delete `downloads_manifest.csv`.
 - Forks are skipped by default. Use `--include-forks` from the CLI if you want them.
 
