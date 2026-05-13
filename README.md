@@ -6,11 +6,10 @@ A Windows tool for downloading public Chub.ai character cards. It supports singl
 
 ## Features
 
-- Click-driven CMD menu.
 - Single character, search, creator, and tag download modes.
 - Preview search and tag results before downloading.
 - Parallel downloads with a configurable batch size from 1 to 20.
-- PNG card, JSON, or both. PNG files include embedded card JSON for SillyTavern/Risu/Agnai.
+- PNG card, JSON, or both. PNG files include embedded card JSON for SillyTavern/Risu/Agnai ect...
 - `downloads_manifest.csv` tracks saved cards and helps skip cards that were already downloaded.
 - Real Chrome session support, so you can log in once and reuse that profile.
 
@@ -19,7 +18,7 @@ A Windows tool for downloading public Chub.ai character cards. It supports singl
 Requirements:
 
 - Windows 10 or 11
-- Python 3.10+
+- Python 3.10+ 
 - Google Chrome
 
 Steps:
