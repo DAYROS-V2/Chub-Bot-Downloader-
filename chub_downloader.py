@@ -7,7 +7,6 @@ Examples:
   py chub_downloader.py single "https://chub.ai/characters/creator/slug" --format both
   py chub_downloader.py search "vampire" --pages 2 --format png
   py chub_downloader.py tag "Love,Human" --pages 2 --match all --format both
-  py chub_downloader.py event "Gold Rush" --pages 2 --format png
   py chub_downloader.py creator "SomeCreator" --pages 3 --format both
   py chub_downloader.py preview "vampire"
 """
@@ -64,7 +63,6 @@ SORT_OPTIONS = {
     "recent_hits": {"label": "Recent Hits", "api": "trending_downloads"},
     "trending": {"label": "Trending", "api": "trending"},
     "timeline": {"label": "Timeline", "api": "timeline"},
-    "evergreen": {"label": "Evergreen Event", "api": "created_at", "topic": "Evergreen"},
     "latest": {"label": "Latest", "api": "created_at"},
     "random": {"label": "Random", "api": "random"},
     # Useful direct API sort names. These are kept for CLI compatibility.
@@ -86,7 +84,6 @@ PROMPT_SORT_KEYS = [
     "recent_hits",
     "trending",
     "timeline",
-    "evergreen",
     "random",
 ]
 CANONICAL_TAGS = {
@@ -1787,55 +1784,6 @@ def download_character_pages(
     return saved_count
 
 
-def flatten_events(events_payload):
-    events = []
-    if not isinstance(events_payload, dict):
-        return events
-    for bucket in ("active", "completed", "draft", "cancelled"):
-        bucket_events = events_payload.get(bucket)
-        if isinstance(bucket_events, list):
-            for event in bucket_events:
-                if isinstance(event, dict):
-                    event = dict(event)
-                    event["_bucket"] = bucket
-                    events.append(event)
-    return events
-
-
-def fetch_events(page, token):
-    result = browser_json_request(page, f"{READ_BASE}/api/events", token)
-    if not result.get("ok"):
-        raise RuntimeError(f"Event fetch failed: HTTP {result.get('status', '?')} {result.get('text', '')[:250]}")
-    return flatten_events(result.get("data") or {})
-
-
-def resolve_event_tag(page, token, event_value):
-    source = text_value(event_value)
-    if not source:
-        return ""
-
-    parsed = urllib.parse.urlparse(source)
-    if parsed.netloc:
-        pieces = [urllib.parse.unquote(p) for p in parsed.path.split("/") if p]
-        if len(pieces) >= 2 and pieces[0].lower() == "events":
-            source = pieces[1]
-
-    events = fetch_events(page, token)
-    source_key = source.lower()
-    for event in events:
-        candidates = [
-            str(event.get("id", "")),
-            text_value(event.get("title")),
-            text_value(event.get("event_tag")),
-        ]
-        if any(candidate.lower() == source_key for candidate in candidates if candidate):
-            tag = text_value(event.get("event_tag")) or text_value(event.get("title"))
-            info(f"Event matched: {event.get('title')} -> tag '{tag}'")
-            return tag
-
-    warn(f"Could not find an event named '{source}', using it as a tag")
-    return source
-
 
 def print_preview(nodes, total=None, limit=10):
     if total is not None:
@@ -1944,15 +1892,14 @@ def run_menu():
     print("    [2]  Search and download")
     print("    [3]  Creator download")
     print("    [4]  Tag download")
-    print("    [5]  Event download")
-    print("    [6]  Preview search")
-    print("    [7]  Preview tag")
-    print("    [8]  Login / setup Chub profile")
-    print("    [9]  Exit")
+    print("    [5]  Preview search")
+    print("    [6]  Preview tag")
+    print("    [7]  Login / setup Chub profile")
+    print("    [8]  Exit")
     print()
-    choice = input("    Pick a mode (1-9): ").strip()
+    choice = input("    Pick a mode (1-8): ").strip()
 
-    if choice == "9":
+    if choice == "8":
         return
 
     args = argparse.Namespace(
@@ -2000,25 +1947,17 @@ def run_menu():
         args.format = prompt_format()
         run_with_browser(args)
     elif choice == "5":
-        args.command = "event"
-        args.concurrency = prompt_concurrency()
-        args.event = input("    Event name/tag/URL: ").strip()
-        args.pages = int(input("    Pages [default 1, -1 forever]: ").strip() or "1")
-        args.sort = prompt_sort()
-        args.format = prompt_format()
-        run_with_browser(args)
-    elif choice == "6":
         args.command = "preview"
         args.query = input("    Search text: ").strip()
         args.sort = prompt_sort()
         run_with_browser(args)
-    elif choice == "7":
+    elif choice == "6":
         args.command = "preview_tag"
         args.tags = input("    Tag(s), comma separated: ").strip()
         args.sort = prompt_sort()
         args.match = prompt_match()
         run_with_browser(args)
-    elif choice == "8":
+    elif choice == "7":
         run_login()
     else:
         fail("Unknown choice")
@@ -2027,7 +1966,7 @@ def run_menu():
 def run_with_browser(args):
     global _LOG_SINK, _DASHBOARD
 
-    use_dashboard = args.command in ("search", "creator", "tag", "event")
+    use_dashboard = args.command in ("search", "creator", "tag")
     log_proc = None
     render_thread = None
     stop_event = None
@@ -2044,14 +1983,12 @@ def run_with_browser(args):
                     getattr(args, "query", None)
                     or getattr(args, "tags", None)
                     or getattr(args, "creator", None)
-                    or getattr(args, "event", None)
                     or ""
                 )
                 mode_label = {
                     "search": "Search download",
                     "creator": "Creator download",
                     "tag": "Tag download",
-                    "event": "Event download",
                 }.get(args.command, args.command)
                 _DASHBOARD.set_meta(
                     target=str(target_value or ""),
@@ -2085,21 +2022,18 @@ def run_with_browser(args):
                 )
                 info(f"Finished: {len(saved)} file reference(s)")
 
-            elif args.command in ("search", "creator", "tag", "event", "preview", "preview_tag"):
+            elif args.command in ("search", "creator", "tag", "preview", "preview_tag"):
                 is_creator = args.command == "creator"
                 is_tag = args.command in ("tag", "preview_tag")
-                is_event = args.command == "event"
                 is_preview = args.command in ("preview", "preview_tag")
                 if is_creator:
                     title = "Creator Download"
                 elif is_tag:
                     title = "Preview Tag" if is_preview else "Tag Download"
-                elif is_event:
-                    title = "Event Download"
                 else:
                     title = "Preview Search" if is_preview else "Search Download"
                 header(title)
-                query = "" if (is_creator or is_tag or is_event) else args.query
+                query = "" if (is_creator or is_tag) else args.query
                 username = parse_creator(args.creator) if is_creator else ""
                 topics = args.topics
                 output_group = ""
@@ -2108,11 +2042,6 @@ def run_with_browser(args):
                     output_group = tag_folder_name(topics)
                     info(f"Tags: {topics}")
                     info(f"Output folder group: {output_group}")
-                elif is_event:
-                    event_tag = resolve_event_tag(page, token, args.event)
-                    topics = merge_topics(event_tag, args.topics)
-                    output_group = tag_folder_name(topics)
-                    info(f"Event tag: {topics}")
 
                 if is_preview:
                     nodes, total = search_characters(
@@ -2216,16 +2145,6 @@ def build_parser():
     tag.add_argument("--format", choices=["png", "json", "both"], default="png")
     tag.add_argument("--concurrency", type=int, default=4, help="Parallel card downloads per batch (1-20).")
 
-    event = sub.add_parser("event", help="Download characters from a Chub event tag.")
-    event.add_argument("event", help="Event title, event tag, event id, or /events URL.")
-    event.add_argument("--pages", type=int, default=1)
-    event.add_argument("--per-page", type=int, default=DEFAULT_PER_PAGE)
-    event.add_argument("--sort", choices=list(SORT_OPTIONS.keys()), default="latest")
-    event.add_argument("--topics", default="", help="Extra tags to combine with the event tag.")
-    event.add_argument("--match", choices=["all", "any"], default="all")
-    event.add_argument("--include-forks", action="store_true", help="Include forked copies in search results.")
-    event.add_argument("--format", choices=["png", "json", "both"], default="png")
-    event.add_argument("--concurrency", type=int, default=4, help="Parallel card downloads per batch (1-20).")
 
     preview = sub.add_parser("preview", help="Preview search results without downloading.")
     preview.add_argument("query")
@@ -2270,3 +2189,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

@@ -14,24 +14,22 @@ echo   [1]  Download single character
 echo   [2]  Search and download
 echo   [3]  Creator download
 echo   [4]  Tag download
-echo   [5]  Event download
-echo   [6]  Preview search
-echo   [7]  Preview tag
-echo   [8]  Login / setup Chub profile
-echo   [9]  Exit
+echo   [5]  Preview search
+echo   [6]  Preview tag
+echo   [7]  Login / setup Chub profile
+echo   [8]  Exit
 echo.
 
-set /p CHOICE="   Pick a mode (1-9): "
+set /p CHOICE="   Pick a mode (1-8): "
 
 if "%CHOICE%"=="1" goto SINGLE
 if "%CHOICE%"=="2" goto SEARCH
 if "%CHOICE%"=="3" goto CREATOR
 if "%CHOICE%"=="4" goto TAG
-if "%CHOICE%"=="5" goto EVENT
-if "%CHOICE%"=="6" goto PREVIEW
-if "%CHOICE%"=="7" goto PREVIEWTAG
-if "%CHOICE%"=="8" goto LOGIN
-if "%CHOICE%"=="9" goto END
+if "%CHOICE%"=="5" goto PREVIEW
+if "%CHOICE%"=="6" goto PREVIEWTAG
+if "%CHOICE%"=="7" goto LOGIN
+if "%CHOICE%"=="8" goto END
 
 echo   Invalid choice. Try again.
 pause
@@ -63,8 +61,7 @@ echo   [5]  Underrated
 echo   [6]  Recent Hits
 echo   [7]  Trending
 echo   [8]  Timeline
-echo   [9]  Evergreen Event
-echo   [10] Random
+echo   [9]  Random
 set "SORT_CHOICE=2"
 set /p SORT_CHOICE="   Pick sort [default 2]: "
 if "%SORT_CHOICE%"=="" set "SORT_CHOICE=2"
@@ -77,8 +74,7 @@ if "%SORT_CHOICE%"=="5" set "SORT=underrated"
 if "%SORT_CHOICE%"=="6" set "SORT=recent_hits"
 if "%SORT_CHOICE%"=="7" set "SORT=trending"
 if "%SORT_CHOICE%"=="8" set "SORT=timeline"
-if "%SORT_CHOICE%"=="9" set "SORT=evergreen"
-if "%SORT_CHOICE%"=="10" set "SORT=random"
+if "%SORT_CHOICE%"=="9" set "SORT=random"
 exit /b
 
 :MATCH
@@ -146,19 +142,6 @@ call :MATCH
 call :FORMAT
 cd /d "%~dp0"
 py chub_downloader.py tag "%TAGS%" --pages %PAGES% --sort %SORT% --match %MATCH% --format %FORMAT% --concurrency %CONCURRENCY%
-goto DONE
-
-:EVENT
-echo.
-call :CONCURRENCY
-set /p EVENT="   Event name/tag/URL: "
-set "PAGES=1"
-set /p PAGES="   Pages [default 1, -1 forever]: "
-if "%PAGES%"=="" set "PAGES=1"
-call :SORT
-call :FORMAT
-cd /d "%~dp0"
-py chub_downloader.py event "%EVENT%" --pages %PAGES% --sort %SORT% --format %FORMAT% --concurrency %CONCURRENCY%
 goto DONE
 
 :PREVIEW
