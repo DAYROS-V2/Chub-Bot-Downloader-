@@ -1,4 +1,4 @@
-# 🎴 Chub AI Character Downloader
+# Chub AI Character Downloader
 
 A friendly, batteries-included Windows tool for snagging public Chub.ai character cards. Search, filter by tag, grab a creator's whole catalog, or chase event drops — all from a comfy CMD menu, with a live dashboard and parallel downloads.
 
