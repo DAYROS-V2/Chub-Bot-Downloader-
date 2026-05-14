@@ -1,13 +1,14 @@
 """
 Chub AI Character Downloader
 
-Focused on downloading public Chub character cards.
+Focused on downloading Chub character cards served to your logged-in account.
 
 Examples:
   py chub_downloader.py single "https://chub.ai/characters/creator/slug" --format both
   py chub_downloader.py search "vampire" --pages 2 --format png
   py chub_downloader.py tag "Love,Human" --pages 2 --match all --format both
   py chub_downloader.py creator "SomeCreator" --pages 3 --format both
+  py chub_downloader.py my-characters --format both
   py chub_downloader.py preview "vampire"
 """
 
@@ -45,6 +46,7 @@ _DASHBOARD = None
 _VT_ENABLED = None
 
 CHUB_HOME = "https://chub.ai/"
+MY_CHARACTERS_URL = urllib.parse.urljoin(CHUB_HOME, "my_characters")
 READ_BASE = "https://ro.chub.ai"
 GATEWAY_BASE = "https://gateway.chub.ai"
 AVATAR_BASE = "https://avatars.charhub.io/avatars"
@@ -1627,6 +1629,159 @@ def search_characters(
     return all_nodes, total
 
 
+def fetch_current_username(page, token):
+    url = f"{READ_BASE}/api/self?nocache={random.random()}"
+    result = browser_json_request(page, url, token)
+    if not result.get("ok"):
+        raise RuntimeError(f"Account lookup failed: HTTP {result.get('status', '?')} {result.get('text', '')[:250]}")
+
+    data = result.get("data") if isinstance(result.get("data"), dict) else {}
+    username = (
+        text_value(data.get("user_name"))
+        or text_value(data.get("username"))
+        or text_value(data.get("name"))
+    )
+    if not username:
+        raise RuntimeError("Chub account lookup did not return a username. Run the login option first.")
+    return username
+
+
+def fetch_my_character_page(page, token, username, page_num, per_page=MAX_PER_PAGE):
+    per_page = max(1, min(int(per_page), MAX_PER_PAGE))
+    params = {
+        "first": per_page,
+        "namespace": "characters",
+        "nsfw": "true",
+        "nsfl": "true",
+        "chub": "true",
+        "count": "true",
+        "exclude_mine": "false",
+        "include_forks": "true",
+        "sort": "created_at",
+        "username": username,
+        "only_mine": "all",
+        "my_favorites": "false",
+        "min_tokens": "0",
+        "page": page_num,
+    }
+    url = f"{READ_BASE}/search?{urllib.parse.urlencode(params)}"
+    info(f"Fetching private bot API page {page_num}...")
+    result = browser_json_request(page, url, token, method="POST", body={})
+    if not result.get("ok"):
+        raise RuntimeError(f"Private bot search failed: HTTP {result.get('status', '?')} {result.get('text', '')[:250]}")
+
+    payload = result.get("data") or {}
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    nodes = data.get("nodes") if isinstance(data.get("nodes"), list) else []
+    total = data.get("count")
+    info(f"Found {len(nodes)} private bot(s) on API page {page_num}")
+    return nodes, total
+
+
+def download_my_characters(
+    page,
+    token,
+    export_format="png",
+    branch="main",
+    overwrite=False,
+    concurrency=4,
+    per_page=MAX_PER_PAGE,
+):
+    per_page = max(1, min(int(per_page), MAX_PER_PAGE))
+    username = fetch_current_username(page, token)
+    info("Using Chub private-bot API for the logged-in account.")
+
+    seen_manifest = load_seen_character_keys()
+    if seen_manifest:
+        info(f"Duplicate guard loaded {len(seen_manifest)} saved character key(s).")
+
+    duplicate_total = 0
+    saved_count = 0
+    attempted_total = 0
+    skipped_existing_total = 0
+    failed_total = 0
+    total_reported = None
+    chunk_size = max(1, min(int(concurrency) if concurrency else 1, 20))
+    page_num = 1
+
+    info(f"Parallel downloads per batch: {chunk_size}")
+    while True:
+        if _DASHBOARD is not None:
+            _DASHBOARD.set_meta(page=page_num)
+            _DASHBOARD.update_action(f"Fetching private API page {page_num}")
+
+        nodes, total = fetch_my_character_page(
+            page,
+            token,
+            username,
+            page_num,
+            per_page=per_page,
+        )
+        if total_reported is None and total is not None:
+            total_reported = total
+            info(f"Total private bots reported by Chub: {total_reported}")
+
+        if not nodes:
+            if page_num == 1:
+                warn("No private bots found. Make sure option 8 login is complete and this account has private bots.")
+            break
+
+        fresh_nodes = []
+        page_duplicate_count = 0
+        for node in nodes:
+            seen_keys = character_seen_keys(node)
+            if seen_keys and seen_manifest.intersection(seen_keys):
+                page_duplicate_count += 1
+                if _DASHBOARD is not None:
+                    _DASHBOARD.record_card("skipped_dupe")
+                continue
+            seen_manifest.update(seen_keys)
+            fresh_nodes.append(node)
+
+        duplicate_total += page_duplicate_count
+        if page_duplicate_count:
+            info(f"Skipped {page_duplicate_count} duplicate private bot(s) on page {page_num}.")
+
+        info(f"Downloading private API page {page_num} ({len(fresh_nodes)} new bot(s), {chunk_size} at a time)...")
+        for start in range(0, len(fresh_nodes), chunk_size):
+            chunk = fresh_nodes[start:start + chunk_size]
+            chunk_end = min(start + chunk_size, len(fresh_nodes))
+            print()
+            info(f"[private page {page_num} bots {start + 1}-{chunk_end}/{len(fresh_nodes)}]")
+            if _DASHBOARD is not None:
+                _DASHBOARD.update_action(f"Private page {page_num} bots {start + 1}-{chunk_end}/{len(fresh_nodes)}")
+
+            chunk_saved, chunk_attempted, chunk_existing, chunk_failed = download_node_batch(
+                page,
+                token,
+                chunk,
+                export_format=export_format,
+                branch=branch,
+                overwrite=overwrite,
+            )
+            saved_count += chunk_saved
+            attempted_total += chunk_attempted
+            skipped_existing_total += chunk_existing
+            failed_total += chunk_failed
+            time.sleep(random.uniform(0.1, 0.25))
+
+        if len(nodes) < per_page:
+            break
+        page_num += 1
+        time.sleep(random.uniform(0.2, 0.6))
+
+    if saved_count == 0 and attempted_total == 0 and duplicate_total:
+        warn("All private bots were already present in the manifest.")
+    print()
+    info("------ Run Summary ------")
+    info(f"  Files saved          : {saved_count}")
+    info(f"  Cards attempted      : {attempted_total}")
+    info(f"  Skipped (exists)     : {skipped_existing_total}")
+    info(f"  Skipped (duplicates) : {duplicate_total}")
+    info(f"  Download failed      : {failed_total}")
+    return saved_count
+
+
 def download_character_pages(
     page,
     token,
@@ -1822,7 +1977,8 @@ def connect_browser(playwright, visible=False):
             context = browser.new_context()
             chub_page = context.new_page()
 
-    if "chub.ai" not in chub_page.url:
+    current_host = urllib.parse.urlparse(chub_page.url).netloc.lower()
+    if current_host not in ("chub.ai", "www.chub.ai"):
         chub_page.goto(CHUB_HOME, wait_until="domcontentloaded", timeout=60000)
     else:
         chub_page.wait_for_load_state("domcontentloaded", timeout=60000)
@@ -1894,12 +2050,13 @@ def run_menu():
     print("    [4]  Tag download")
     print("    [5]  Preview search")
     print("    [6]  Preview tag")
-    print("    [7]  Login / setup Chub profile")
-    print("    [8]  Exit")
+    print("    [7]  Export my private bots")
+    print("    [8]  Login / setup Chub profile")
+    print("    [9]  Exit")
     print()
-    choice = input("    Pick a mode (1-8): ").strip()
+    choice = input("    Pick a mode (1-9): ").strip()
 
-    if choice == "8":
+    if choice == "9":
         return
 
     args = argparse.Namespace(
@@ -1958,6 +2115,12 @@ def run_menu():
         args.match = prompt_match()
         run_with_browser(args)
     elif choice == "7":
+        args.command = "private"
+        args.concurrency = prompt_concurrency()
+        args.per_page = MAX_PER_PAGE
+        args.format = prompt_format()
+        run_with_browser(args)
+    elif choice == "8":
         run_login()
     else:
         fail("Unknown choice")
@@ -1966,7 +2129,7 @@ def run_menu():
 def run_with_browser(args):
     global _LOG_SINK, _DASHBOARD
 
-    use_dashboard = args.command in ("search", "creator", "tag")
+    use_dashboard = args.command in ("search", "creator", "tag", "private")
     log_proc = None
     render_thread = None
     stop_event = None
@@ -1983,12 +2146,14 @@ def run_with_browser(args):
                     getattr(args, "query", None)
                     or getattr(args, "tags", None)
                     or getattr(args, "creator", None)
+                    or (MY_CHARACTERS_URL if args.command == "private" else None)
                     or ""
                 )
                 mode_label = {
                     "search": "Search download",
                     "creator": "Creator download",
                     "tag": "Tag download",
+                    "private": "Private bot export",
                 }.get(args.command, args.command)
                 _DASHBOARD.set_meta(
                     target=str(target_value or ""),
@@ -2021,6 +2186,19 @@ def run_with_browser(args):
                     overwrite=args.overwrite,
                 )
                 info(f"Finished: {len(saved)} file reference(s)")
+
+            elif args.command == "private":
+                header("Private Bot Export")
+                saved_count = download_my_characters(
+                    page,
+                    token,
+                    export_format=args.format,
+                    branch=args.branch,
+                    overwrite=args.overwrite,
+                    concurrency=getattr(args, "concurrency", 4),
+                    per_page=getattr(args, "per_page", MAX_PER_PAGE),
+                )
+                info(f"Finished: {saved_count} file(s) saved")
 
             elif args.command in ("search", "creator", "tag", "preview", "preview_tag"):
                 is_creator = args.command == "creator"
@@ -2145,6 +2323,17 @@ def build_parser():
     tag.add_argument("--format", choices=["png", "json", "both"], default="png")
     tag.add_argument("--concurrency", type=int, default=4, help="Parallel card downloads per batch (1-20).")
 
+
+    private = sub.add_parser("private", help="Export your private bots through Chub's logged-in API.")
+    private.add_argument("--format", choices=["png", "json", "both"], default="png")
+    private.add_argument("--concurrency", type=int, default=4, help="Parallel card downloads per batch (1-20).")
+    private.add_argument("--per-page", type=int, default=MAX_PER_PAGE, help="Private API page size (1-50).")
+
+    my_characters = sub.add_parser("my-characters", help="Alias for private.")
+    my_characters.set_defaults(command="private")
+    my_characters.add_argument("--format", choices=["png", "json", "both"], default="png")
+    my_characters.add_argument("--concurrency", type=int, default=4, help="Parallel card downloads per batch (1-20).")
+    my_characters.add_argument("--per-page", type=int, default=MAX_PER_PAGE, help="Private API page size (1-50).")
 
     preview = sub.add_parser("preview", help="Preview search results without downloading.")
     preview.add_argument("query")

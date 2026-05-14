@@ -1,12 +1,13 @@
 # Chub AI Character Downloader
 
-A Windows tool for downloading public Chub.ai character cards. It supports single-character downloads, search downloads, creator downloads, tag downloads, previews, a saved Chrome login profile, and a live download dashboard.
+A Windows tool for downloading Chub.ai character cards. It supports single-character downloads, search downloads, creator downloads, tag downloads, private bot export from your account page, previews, a saved Chrome login profile, and a live download dashboard.
 
-> This only downloads public cards that Chub serves to your account. NSFL/NSFW results still depend on your Chub account settings.
+> This only downloads cards that Chub serves to your logged-in account. NSFL/NSFW results and private bots still depend on your Chub account settings and saved browser login.
 
 ## Features
 
 - Single character, search, creator, and tag download modes.
+- Private bot export from `https://chub.ai/my_characters`.
 - Preview search and tag results before downloading.
 - Parallel downloads with a configurable batch size from 1 to 20.
 - PNG card, JSON, or both. PNG files include embedded card JSON for SillyTavern/Risu/Agnai ect...
@@ -37,8 +38,9 @@ Steps:
 [4]  Tag download
 [5]  Preview search
 [6]  Preview tag
-[7]  Login / setup Chub profile
-[8]  Exit
+[7]  Export my private bots
+[8]  Login / setup Chub profile
+[9]  Exit
 ```
 
 ## Output
@@ -62,6 +64,7 @@ character exports/
 py chub_downloader.py search "vampire" --pages 5 --sort latest --format both --concurrency 8
 py chub_downloader.py tag "Love,Human" --pages 2 --match all --format png --concurrency 12
 py chub_downloader.py creator "SomeCreator" --pages 3 --format both --concurrency 4
+py chub_downloader.py my-characters --format both --concurrency 8 --per-page 50
 py chub_downloader.py single "https://chub.ai/characters/creator/slug" --format both
 py chub_downloader.py preview "robot maid" --sort popularity
 py chub_downloader.py preview-tag "Love,Human" --match all
@@ -75,5 +78,6 @@ py chub_downloader.py login
 - If Chub does not load while you are signing in, close the scraper CMD window. The Chrome window should finish loading after that. Once you are logged in, run `run_downloader.bat` again and use the normal download/preview options instead of the login option.
 - If downloads fail, check `downloader.log`, then rerun the same mode. Saved cards are skipped automatically unless you delete `downloads_manifest.csv`.
 - Forks are skipped by default. Use `--include-forks` from the CLI if you want them.
+- For private bots, run the login option first. The exporter uses Chub's logged-in private bot API and follows `page=1`, `page=2`, and so on until the API returns no more bots.
 
 If you see any bugs, please let me know.

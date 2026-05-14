@@ -16,11 +16,12 @@ echo   [3]  Creator download
 echo   [4]  Tag download
 echo   [5]  Preview search
 echo   [6]  Preview tag
-echo   [7]  Login / setup Chub profile
-echo   [8]  Exit
+echo   [7]  Export my private bots
+echo   [8]  Login / setup Chub profile
+echo   [9]  Exit
 echo.
 
-set /p CHOICE="   Pick a mode (1-8): "
+set /p CHOICE="   Pick a mode (1-9): "
 
 if "%CHOICE%"=="1" goto SINGLE
 if "%CHOICE%"=="2" goto SEARCH
@@ -28,8 +29,9 @@ if "%CHOICE%"=="3" goto CREATOR
 if "%CHOICE%"=="4" goto TAG
 if "%CHOICE%"=="5" goto PREVIEW
 if "%CHOICE%"=="6" goto PREVIEWTAG
-if "%CHOICE%"=="7" goto LOGIN
-if "%CHOICE%"=="8" goto END
+if "%CHOICE%"=="7" goto PRIVATE
+if "%CHOICE%"=="8" goto LOGIN
+if "%CHOICE%"=="9" goto END
 
 echo   Invalid choice. Try again.
 pause
@@ -159,6 +161,14 @@ call :SORT
 call :MATCH
 cd /d "%~dp0"
 py chub_downloader.py preview-tag "%TAGS%" --sort %SORT% --match %MATCH%
+goto DONE
+
+:PRIVATE
+echo.
+call :CONCURRENCY
+call :FORMAT
+cd /d "%~dp0"
+py chub_downloader.py my-characters --format %FORMAT% --concurrency %CONCURRENCY%
 goto DONE
 
 :LOGIN
